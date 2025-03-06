@@ -1,0 +1,10 @@
+{
+    "name": "php-dep/examples",
+    "description": "Example files for PHP Dependency Analyzer",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    }
+}

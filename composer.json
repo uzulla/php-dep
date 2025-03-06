@@ -1,0 +1,33 @@
+{
+    "name": "php-dep/analyzer",
+    "description": "A tool to analyze PHP file dependencies",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "PHP Dependency Analyzer"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "nikic/php-parser": "^4.15",
+        "symfony/console": "^5.4",
+        "symfony/finder": "^5.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "PhpDep\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PhpDep\\Tests\\": "tests/"
+        }
+    },
+    "bin": [
+        "bin/php-dep"
+    ]
+}

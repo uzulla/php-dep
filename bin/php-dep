@@ -1,0 +1,117 @@
+#!/usr/bin/env php
+<?php
+
+// Find and require the autoloader
+$autoloadPaths = [
+    __DIR__ . '/../vendor/autoload.php',
+    __DIR__ . '/../../../autoload.php',
+];
+
+$autoloaderFound = false;
+foreach ($autoloadPaths as $autoloadPath) {
+    if (file_exists($autoloadPath)) {
+        require_once $autoloadPath;
+        $autoloaderFound = true;
+        break;
+    }
+}
+
+if (!$autoloaderFound) {
+    fwrite(STDERR, 'Autoloader not found. Please run "composer install".' . PHP_EOL);
+    exit(1);
+}
+
+use PhpDep\DependencyAnalyzer;
+use PhpDep\Parser\PhpFileParser;
+use PhpDep\Resolver\ComposerResolver;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+
+$application = new Application('PHP Dependency Analyzer', '1.0.0');
+
+// Create the analyze command
+$analyzeCommand = $application->register('analyze')
+    ->setDescription('Analyze PHP file dependencies')
+    ->addArgument('file', InputArgument::REQUIRED, 'Path to the PHP file to analyze')
+    ->addOption('recursive', 'r', InputOption::VALUE_NONE, 'Analyze dependencies recursively (default: true)')
+    ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Output format (text, json, markdown)', 'markdown')
+    ->addOption('composer', 'c', InputOption::VALUE_REQUIRED, 'Path to composer.json file')
+    ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output file path (for markdown format)')
+    ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
+    ->setCode(function (InputInterface $input, OutputInterface $output) {
+        $filePath = $input->getArgument('file');
+        $recursive = true; // Always recursive by default
+        $format = $input->getOption('format');
+        $composerJsonPath = $input->getOption('composer');
+        $outputFilePath = $input->getOption('output');
+        $includeAutoload = $input->getOption('include-autoload');
+        
+        try {
+            // Create a parser
+            $parser = new PhpFileParser();
+            
+            // Create a resolver
+            $resolver = new ComposerResolver($composerJsonPath);
+            
+            // Determine if we need to load file contents
+            $loadContents = $format === 'markdown';
+            
+            // Create an analyzer with the custom resolver
+            $analyzer = new DependencyAnalyzer($parser, $resolver, $loadContents, $includeAutoload);
+            
+            // Analyze the file
+            $node = $analyzer->analyze($filePath, $recursive);
+            
+            if ($format === 'json') {
+                $dependencies = $node->getAllDependencyPaths();
+                $jsonOutput = json_encode([
+                    'file' => $filePath,
+                    'dependencies' => $dependencies,
+                ], JSON_PRETTY_PRINT);
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $jsonOutput);
+                    $output->writeln("<info>JSON output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($jsonOutput);
+                }
+            } elseif ($format === 'markdown') {
+                $markdown = $node->toMarkdown();
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $markdown);
+                    $output->writeln("<info>Markdown output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($markdown);
+                }
+            } else {
+                $output->writeln("<info>Dependencies for {$filePath}:</info>");
+                
+                $dependencies = $node->getAllDependencyPaths();
+                
+                if (empty($dependencies)) {
+                    $output->writeln('  <comment>No dependencies found.</comment>');
+                } else {
+                    foreach ($dependencies as $dependency) {
+                        $output->writeln("  - {$dependency}");
+                    }
+                    
+                    $output->writeln("\n<info>Total dependencies: " . count($dependencies) . "</info>");
+                }
+            }
+            
+            return Command::SUCCESS;
+        } catch (\Exception $e) {
+            $output->writeln("<error>Error: {$e->getMessage()}</error>");
+            return Command::FAILURE;
+        }
+    });
+
+// Set the default command to 'analyze'
+$application->setDefaultCommand('analyze', true);
+
+$application->run();
