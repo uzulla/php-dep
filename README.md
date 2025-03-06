@@ -167,11 +167,9 @@ Example Markdown output:
 ```markdown
 # File: path/to/your/file.php
 
-```php
 <?php
 // File content here
 ?>
-```
 
 ## Dynamic Dependencies
 
@@ -179,24 +177,6 @@ These dependencies could not be resolved because they use dynamic file paths:
 
 - require_once `modules/{$moduleName}.php`
 - include_once `modules/ . $moduleName . .class.php`
-
-## Dependencies
-
-### File: path/to/dependency1.php
-
-```php
-<?php
-// Dependency 1 content here
-?>
-```
-
-### File: path/to/dependency2.php
-
-```php
-<?php
-// Dependency 2 content here
-?>
-```
 ```
 
 ## How It Works
