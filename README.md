@@ -22,7 +22,7 @@ A tool to analyze PHP file dependencies. This tool helps with refactoring and un
 ```
 # File: /Users/zishida/php-dep/src/DependencyAnalyzer.php
 
-```php
+
 <?php
 
 namespace PhpDep;
@@ -38,7 +38,7 @@ class DependencyAnalyzer
 <snip>
 }
 
-```
+
 
 ## Dependencies
 
@@ -58,11 +58,11 @@ use PhpParser\NodeVisitorAbstract;
 
 <snip>
 
-```
+
 
 ### File: /Users/zishida/php-dep/src//Resolver/ComposerResolver.php
 
-```php
+
 <?php
 
 namespace PhpDep\Resolver;
