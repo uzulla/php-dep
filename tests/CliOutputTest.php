@@ -142,4 +142,88 @@ class CliOutputTest extends TestCase
             }
         }
     }
+
+    /**
+     * Test text output with custom item prefix
+     */
+    public function testTextOutputWithCustomPrefix()
+    {
+        // Create a temporary directory for test files
+        $tempDir = sys_get_temp_dir() . '/php-dep-test-' . uniqid();
+        mkdir($tempDir, 0755, true);
+        
+        try {
+            // Create test files
+            $mainFile = $tempDir . '/main.php';
+            $depFile = $tempDir . '/dependency.php';
+            
+            file_put_contents($mainFile, '<?php require_once "dependency.php"; echo "Main file"; ?>');
+            file_put_contents($depFile, '<?php echo "Dependency file"; ?>');
+            
+            $customCommand = sprintf(
+                'php %s/bin/php-dep %s --format=text --text-item-prefix="@"',
+                dirname(__DIR__),
+                $mainFile
+            );
+            
+            $customOutput = shell_exec($customCommand);
+            
+            $this->assertStringContainsString('@', $customOutput);
+            $this->assertStringNotContainsString('  - ', $customOutput);
+            
+        } finally {
+            // Clean up
+            if (file_exists($mainFile)) {
+                unlink($mainFile);
+            }
+            if (file_exists($depFile)) {
+                unlink($depFile);
+            }
+            if (is_dir($tempDir)) {
+                rmdir($tempDir);
+            }
+        }
+    }
+
+    /**
+     * Test text output with custom empty item prefix
+     */
+    public function testTextOutputWithCustomEmptyPrefix()
+    {
+        // Create a temporary directory for test files
+        $tempDir = sys_get_temp_dir() . '/php-dep-test-' . uniqid();
+        mkdir($tempDir, 0755, true);
+        
+        try {
+            // Create test files
+            $mainFile = $tempDir . '/main.php';
+            $depFile = $tempDir . '/dependency.php';
+            
+            file_put_contents($mainFile, '<?php require_once "dependency.php"; echo "Main file"; ?>');
+            file_put_contents($depFile, '<?php echo "Dependency file"; ?>');
+            
+            $emptyCommand = sprintf(
+                'php %s/bin/php-dep %s --format=text --text-item-prefix=""',
+                dirname(__DIR__),
+                $mainFile
+            );
+            
+            $emptyOutput = shell_exec($emptyCommand);
+            
+            $this->assertStringContainsString('Dependencies for', $emptyOutput);
+            $this->assertStringNotContainsString('  - ', $emptyOutput);
+            
+        } finally {
+            // Clean up
+            if (file_exists($mainFile)) {
+                unlink($mainFile);
+            }
+            if (file_exists($depFile)) {
+                unlink($depFile);
+            }
+            if (is_dir($tempDir)) {
+                rmdir($tempDir);
+            }
+        }
+    }
 }

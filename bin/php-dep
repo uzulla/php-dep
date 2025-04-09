@@ -42,6 +42,7 @@ $analyzeCommand = $application->register('analyze')
     ->addOption('composer', 'c', InputOption::VALUE_REQUIRED, 'Path to composer.json file')
     ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output file path (for markdown format)')
     ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
+    ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
     ->setCode(function (InputInterface $input, OutputInterface $output) {
         $filePath = $input->getArgument('file');
         $recursive = true; // Always recursive by default
@@ -49,6 +50,7 @@ $analyzeCommand = $application->register('analyze')
         $composerJsonPath = $input->getOption('composer');
         $outputFilePath = $input->getOption('output');
         $includeAutoload = $input->getOption('include-autoload');
+        $textItemPrefix = $input->getOption('text-item-prefix');
         
         try {
             // Create a parser
@@ -97,7 +99,7 @@ $analyzeCommand = $application->register('analyze')
                     $output->writeln('  <comment>No dependencies found.</comment>');
                 } else {
                     foreach ($dependencies as $dependency) {
-                        $output->writeln("  - {$dependency}");
+                        $output->writeln("{$textItemPrefix}{$dependency}");
                     }
                     
                     $output->writeln("\n<info>Total dependencies: " . count($dependencies) . "</info>");
