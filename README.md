@@ -112,6 +112,12 @@ php-dep path/to/your/file.php --format=json
 
 # Output in Markdown format to a file
 php-dep path/to/your/file.php --output=dependencies.md
+
+# Output in text format with custom prefix
+php-dep path/to/your/file.php --format=text --text-item-prefix="@"
+
+# Output in text format without prefix
+php-dep path/to/your/file.php --format=text --text-item-prefix=""
 ```
 
 ### Library Usage
