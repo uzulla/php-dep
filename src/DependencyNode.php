@@ -391,13 +391,33 @@ class DependencyNode
     {
         $path = preg_replace('/\.php$/', '', $filePath);
         
-        $sourceDirectories = ['/src/', '/lib/', '/app/', '/classes/'];
+        $sourceDirectories = [
+            '/src/', 
+            '/lib/', 
+            '/app/', 
+            '/classes/', 
+            '/include/', 
+            '/source/',
+            '/core/',
+            '/modules/'
+        ];
         
         foreach ($sourceDirectories as $sourceDir) {
             $pos = strpos($path, $sourceDir);
             if ($pos !== false) {
                 $path = substr($path, $pos + strlen($sourceDir));
                 break;
+            }
+        }
+        
+        if ($path === preg_replace('/\.php$/', '', $filePath)) {
+            $pathParts = explode('/', $path);
+            array_pop($pathParts);
+            if (!empty($pathParts)) {
+                $lastDir = end($pathParts);
+                if (preg_match('/^[A-Z]/', $lastDir)) {
+                    $path = $lastDir . '/' . basename($path);
+                }
             }
         }
         
