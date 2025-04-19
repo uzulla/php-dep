@@ -479,12 +479,17 @@ class DependencyNode
             if (basename($phpFile) === 'Client.php' && strpos($content, 'implements') !== false) {
                 if (preg_match('/class\s+Client\s+implements\s+([^{]+)/i', $content, $matches)) {
                     $implementsLine = $matches[1];
-                    if (strpos($implementsLine, 'ClientInterface') !== false) {
+                    
+                    if ($shortInterfaceName === 'ClientInterface' && strpos($implementsLine, 'ClientInterface') !== false) {
                         $className = $this->extractClassName($content);
                         if ($className) {
                             $implementations[] = $className;
                         } else {
                             $implementations[] = $this->filePathToFQCN($phpFile);
+                        }
+                        
+                        if ($debug) {
+                            $implementations[] = "[DEBUG] Found Client.php implementing ClientInterface";
                         }
                         continue;
                     }
