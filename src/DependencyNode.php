@@ -435,13 +435,41 @@ class DependencyNode
         
         $phpFiles = $this->findPhpFiles($searchDir);
         
+        $shortInterfaceName = $interfaceName;
+        $lastBackslash = strrpos($interfaceName, '\\');
+        if ($lastBackslash !== false) {
+            $shortInterfaceName = substr($interfaceName, $lastBackslash + 1);
+        }
+        
+        $interfacePatterns = [
+            $shortInterfaceName,
+            '\\\\' . $shortInterfaceName,
+            'Psr\\\\Http\\\\Client\\\\' . $shortInterfaceName,
+            'Psr\\\\Http\\\\Message\\\\' . $shortInterfaceName,
+            'GuzzleHttp\\\\' . $shortInterfaceName
+        ];
+        
         foreach ($phpFiles as $phpFile) {
             $content = file_get_contents($phpFile);
             if ($content === false) {
                 continue;
             }
             
-            if ($this->implementsInterface($content, $interfaceName)) {
+            $isImplementing = false;
+            foreach ($interfacePatterns as $pattern) {
+                if (preg_match('/class\s+\w+(?:\s+extends\s+\w+)?\s+implements\s+(?:[^{]+,\s*)?(?:\\\\)?(' . preg_quote($pattern, '/') . ')(?:\s*,|\s*{)/i', $content)) {
+                    $isImplementing = true;
+                    break;
+                }
+            }
+            
+            if (!$isImplementing && strpos($content, 'implements') !== false) {
+                if (preg_match('/implements\s+[^{]*' . preg_quote($shortInterfaceName, '/') . '[,\s{]/i', $content)) {
+                    $isImplementing = true;
+                }
+            }
+            
+            if ($isImplementing) {
                 $className = $this->extractClassName($content);
                 if ($className) {
                     $implementations[] = $className;
