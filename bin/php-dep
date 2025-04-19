@@ -44,7 +44,8 @@ $analyzeCommand = $application->register('analyze')
     ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
     ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
     ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
-    ->addOption('dep-tree-full', null, InputOption::VALUE_OPTIONAL, 'Display dependencies in a tree structure with interface implementations', null)
+    ->addOption('dep-tree-full', null, InputOption::VALUE_NONE, 'Display dependencies in a tree structure with interface implementations')
+    ->addOption('target', 't', InputOption::VALUE_REQUIRED, 'Target directory to search for interface implementations')
     ->addOption('debug', null, InputOption::VALUE_NONE, 'Enable debug output')
     ->setCode(function (InputInterface $input, OutputInterface $output) {
         $filePath = $input->getArgument('file');
@@ -85,11 +86,11 @@ $analyzeCommand = $application->register('analyze')
                 
                 // Return early to avoid falling through to the default format
                 return 0;
-            } elseif ($input->getOption('dep-tree-full') !== null) {
+            } elseif ($input->getOption('dep-tree-full')) {
                 $output->writeln("<info>Full dependency tree with interface implementations for {$filePath}:</info>");
                 
-                // Use the directory provided with --dep-tree-full or the directory of the analyzed file
-                $searchDir = $input->getOption('dep-tree-full');
+                // Use the directory provided with --target or the directory of the analyzed file
+                $searchDir = $input->getOption('target');
                 if ($searchDir === null || $searchDir === '') {
                     $searchDir = dirname($filePath);
                 }
