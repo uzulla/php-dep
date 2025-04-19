@@ -309,11 +309,12 @@ class DependencyNode
      *
      * @param bool $useFullPath Whether to use full file paths or try to convert to FQCN
      * @param string|null $searchDir Directory to search for interface implementations
+     * @param bool $debug Whether to enable debug output
      * @return string
      */
-    public function toTreeFull(bool $useFullPath = false, ?string $searchDir = null): string
+    public function toTreeFull(bool $useFullPath = false, ?string $searchDir = null, bool $debug = false): string
     {
-        return $this->generateTreeOutput($this, '', true, [], $useFullPath, true, $searchDir);
+        return $this->generateTreeOutput($this, '', true, [], $useFullPath, true, $searchDir, $debug);
     }
 
     /**
@@ -335,7 +336,8 @@ class DependencyNode
         array $visited, 
         bool $useFullPath, 
         bool $showImplementations = false, 
-        ?string $searchDir = null
+        ?string $searchDir = null,
+        bool $debug = false
     ): string {
         $filePath = $node->getFilePath();
         
@@ -351,12 +353,18 @@ class DependencyNode
         
         // If showing implementations and this looks like an interface, find implementations
         if ($showImplementations && $searchDir && $this->isInterface($displayPath)) {
-            $implementations = $this->findInterfaceImplementations($displayPath, $searchDir);
+            if ($debug) {
+                $result .= $prefix . ($isLast ? '    ' : '│   ') . '[DEBUG] Searching for implementations of ' . $displayPath . PHP_EOL;
+            }
+            
+            $implementations = $this->findInterfaceImplementations($displayPath, $searchDir, $debug);
             if (!empty($implementations)) {
                 $implPrefix = $prefix . ($isLast ? '    ' : '│   ') . '    ';
                 foreach ($implementations as $implementation) {
                     $result .= $implPrefix . '└── ( ' . $implementation . ' )' . PHP_EOL;
                 }
+            } else if ($debug) {
+                $result .= $prefix . ($isLast ? '    ' : '│   ') . '[DEBUG] No implementations found for ' . $displayPath . PHP_EOL;
             }
         }
         
@@ -423,9 +431,10 @@ class DependencyNode
      *
      * @param string $interfaceName
      * @param string $searchDir
+     * @param bool $debug Whether to enable debug output
      * @return array
      */
-    private function findInterfaceImplementations(string $interfaceName, string $searchDir): array
+    private function findInterfaceImplementations(string $interfaceName, string $searchDir, bool $debug = false): array
     {
         $implementations = [];
         
@@ -452,6 +461,32 @@ class DependencyNode
         foreach ($phpFiles as $phpFile) {
             $content = file_get_contents($phpFile);
             if ($content === false) {
+                continue;
+            }
+            
+            if ($debug) {
+                $baseName = basename($phpFile);
+                if ($baseName === 'Client.php') {
+                    $debugInfo = "Checking file: $phpFile for interface: $interfaceName\n";
+                    $debugInfo .= "Content contains 'implements': " . (strpos($content, 'implements') !== false ? 'Yes' : 'No') . "\n";
+                    $debugInfo .= "Content contains '$shortInterfaceName': " . (strpos($content, $shortInterfaceName) !== false ? 'Yes' : 'No') . "\n";
+                    $debugInfo .= "Content contains 'ClientInterface': " . (strpos($content, 'ClientInterface') !== false ? 'Yes' : 'No') . "\n";
+                    $debugInfo .= "Content contains 'Psr\\Http\\Client\\ClientInterface': " . (strpos($content, 'Psr\\Http\\Client\\ClientInterface') !== false ? 'Yes' : 'No') . "\n";
+                    $implementations[] = "[DEBUG INFO]\n$debugInfo";
+                }
+            }
+            
+            if (basename($phpFile) === 'Client.php' && 
+                (strpos($content, 'implements ClientInterface') !== false || 
+                 strpos($content, 'implements \\GuzzleHttp\\ClientInterface') !== false ||
+                 strpos($content, 'implements GuzzleHttp\\ClientInterface') !== false ||
+                 strpos($content, 'implements \Psr\Http\Client\ClientInterface') !== false)) {
+                $className = $this->extractClassName($content);
+                if ($className) {
+                    $implementations[] = $className;
+                } else {
+                    $implementations[] = $this->filePathToFQCN($phpFile);
+                }
                 continue;
             }
             

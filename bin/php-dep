@@ -45,6 +45,7 @@ $analyzeCommand = $application->register('analyze')
     ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
     ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
     ->addOption('dep-tree-full', null, InputOption::VALUE_OPTIONAL, 'Display dependencies in a tree structure with interface implementations', null)
+    ->addOption('debug', null, InputOption::VALUE_NONE, 'Enable debug output')
     ->setCode(function (InputInterface $input, OutputInterface $output) {
         $filePath = $input->getArgument('file');
         $recursive = true; // Always recursive by default
@@ -94,7 +95,12 @@ $analyzeCommand = $application->register('analyze')
                 }
                 
                 $output->writeln("<info>Searching for interface implementations in: {$searchDir}</info>");
-                $treeOutput = $node->toTreeFull(false, $searchDir);
+                $debug = $input->getOption('debug');
+                $treeOutput = $node->toTreeFull(false, $searchDir, $debug);
+                
+                if ($debug) {
+                    $output->writeln("<comment>Debug mode enabled. Showing additional information.</comment>");
+                }
                 
                 if ($outputFilePath) {
                     file_put_contents($outputFilePath, $treeOutput);
