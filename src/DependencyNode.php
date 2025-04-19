@@ -476,18 +476,19 @@ class DependencyNode
                 }
             }
             
-            if (basename($phpFile) === 'Client.php' && 
-                (strpos($content, 'implements ClientInterface') !== false || 
-                 strpos($content, 'implements \\GuzzleHttp\\ClientInterface') !== false ||
-                 strpos($content, 'implements GuzzleHttp\\ClientInterface') !== false ||
-                 strpos($content, 'implements \Psr\Http\Client\ClientInterface') !== false)) {
-                $className = $this->extractClassName($content);
-                if ($className) {
-                    $implementations[] = $className;
-                } else {
-                    $implementations[] = $this->filePathToFQCN($phpFile);
+            if (basename($phpFile) === 'Client.php' && strpos($content, 'implements') !== false) {
+                if (preg_match('/class\s+Client\s+implements\s+([^{]+)/i', $content, $matches)) {
+                    $implementsLine = $matches[1];
+                    if (strpos($implementsLine, 'ClientInterface') !== false) {
+                        $className = $this->extractClassName($content);
+                        if ($className) {
+                            $implementations[] = $className;
+                        } else {
+                            $implementations[] = $this->filePathToFQCN($phpFile);
+                        }
+                        continue;
+                    }
                 }
-                continue;
             }
             
             $isImplementing = false;
