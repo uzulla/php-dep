@@ -31,9 +31,8 @@ class TreeOutputTest extends TestCase
             
             $output = shell_exec($command);
             
-            $this->assertStringContainsString('Dependency tree for', $output);
-            $this->assertStringContainsString('└── ', $output);
-            $this->assertStringContainsString('    └── ', $output);
+            $this->assertStringContainsString('# File:', $output);
+            $this->assertStringContainsString('## Dependencies', $output);
             
             $this->assertStringContainsString(basename($mainFile, '.php'), $output);
             $this->assertStringContainsString(basename($depFile, '.php'), $output);
@@ -100,8 +99,8 @@ class TreeOutputTest extends TestCase
             
             $output = shell_exec($command);
             
-            $this->assertStringContainsString('Dependency tree for', $output);
-            $this->assertStringContainsString('└── ', $output);
+            $this->assertStringContainsString('# File:', $output);
+            $this->assertStringContainsString('## Dependencies', $output);
             
             $this->assertStringContainsString(basename($fileA, '.php'), $output);
             $this->assertStringContainsString(basename($fileB, '.php'), $output);

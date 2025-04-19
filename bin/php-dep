@@ -102,6 +102,9 @@ $analyzeCommand = $application->register('analyze')
                 } else {
                     $output->writeln($treeOutput);
                 }
+                
+                // Return early to avoid falling through to the default format
+                return 0;
             } else {
                 $output->writeln("<info>Dependencies for {$filePath}:</info>");
                 

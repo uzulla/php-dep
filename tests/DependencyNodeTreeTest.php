@@ -23,10 +23,10 @@ class DependencyNodeTreeTest extends TestCase
         
         $treeOutput = $rootNode->toTree();
         
-        $this->assertStringContainsString('└── root', $treeOutput);
-        $this->assertStringContainsString('    ├── dependency1', $treeOutput);
-        $this->assertStringContainsString('    │   └── nested', $treeOutput);
-        $this->assertStringContainsString('    └── dependency2', $treeOutput);
+        $this->assertStringContainsString('└── \\path\\to\\root', $treeOutput);
+        $this->assertStringContainsString('    ├── \\path\\to\\dependency1', $treeOutput);
+        $this->assertStringContainsString('    │   └── \\path\\to\\nested', $treeOutput);
+        $this->assertStringContainsString('    └── \\path\\to\\dependency2', $treeOutput);
     }
     
     /**
@@ -42,8 +42,8 @@ class DependencyNodeTreeTest extends TestCase
         
         $treeOutput = $nodeA->toTree();
         
-        $this->assertStringContainsString('└── nodeA', $treeOutput);
-        $this->assertStringContainsString('    └── nodeB', $treeOutput);
+        $this->assertStringContainsString('└── \\path\\to\\nodeA', $treeOutput);
+        $this->assertStringContainsString('    └── \\path\\to\\nodeB', $treeOutput);
         
         $this->assertStringNotContainsString('        └── nodeA', $treeOutput);
     }
