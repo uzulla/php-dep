@@ -70,29 +70,7 @@ $analyzeCommand = $application->register('analyze')
             // Analyze the file
             $node = $analyzer->analyze($filePath, $recursive);
             
-            if ($format === 'json') {
-                $dependencies = $node->getAllDependencyPaths();
-                $jsonOutput = json_encode([
-                    'file' => $filePath,
-                    'dependencies' => $dependencies,
-                ], JSON_PRETTY_PRINT);
-                
-                if ($outputFilePath) {
-                    file_put_contents($outputFilePath, $jsonOutput);
-                    $output->writeln("<info>JSON output written to {$outputFilePath}</info>");
-                } else {
-                    $output->writeln($jsonOutput);
-                }
-            } elseif ($format === 'markdown') {
-                $markdown = $node->toMarkdown();
-                
-                if ($outputFilePath) {
-                    file_put_contents($outputFilePath, $markdown);
-                    $output->writeln("<info>Markdown output written to {$outputFilePath}</info>");
-                } else {
-                    $output->writeln($markdown);
-                }
-            } elseif ($input->getOption('dep-tree')) {
+            if ($input->getOption('dep-tree')) {
                 $output->writeln("<info>Dependency tree for {$filePath}:</info>");
                 
                 $treeOutput = $node->toTree();
@@ -127,6 +105,28 @@ $analyzeCommand = $application->register('analyze')
                 
                 // Return early to avoid falling through to the default format
                 return 0;
+            } elseif ($format === 'json') {
+                $dependencies = $node->getAllDependencyPaths();
+                $jsonOutput = json_encode([
+                    'file' => $filePath,
+                    'dependencies' => $dependencies,
+                ], JSON_PRETTY_PRINT);
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $jsonOutput);
+                    $output->writeln("<info>JSON output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($jsonOutput);
+                }
+            } elseif ($format === 'markdown') {
+                $markdown = $node->toMarkdown();
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $markdown);
+                    $output->writeln("<info>Markdown output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($markdown);
+                }
             } else {
                 $output->writeln("<info>Dependencies for {$filePath}:</info>");
                 
