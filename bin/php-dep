@@ -43,6 +43,7 @@ $analyzeCommand = $application->register('analyze')
     ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output file path (for markdown format)')
     ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
     ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
+    ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
     ->setCode(function (InputInterface $input, OutputInterface $output) {
         $filePath = $input->getArgument('file');
         $recursive = true; // Always recursive by default
@@ -89,6 +90,17 @@ $analyzeCommand = $application->register('analyze')
                     $output->writeln("<info>Markdown output written to {$outputFilePath}</info>");
                 } else {
                     $output->writeln($markdown);
+                }
+            } elseif ($input->getOption('dep-tree')) {
+                $output->writeln("<info>Dependency tree for {$filePath}:</info>");
+                
+                $treeOutput = $node->toTree();
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $treeOutput);
+                    $output->writeln("<info>Tree output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($treeOutput);
                 }
             } else {
                 $output->writeln("<info>Dependencies for {$filePath}:</info>");

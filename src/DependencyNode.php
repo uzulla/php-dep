@@ -292,4 +292,74 @@ class DependencyNode
         
         return $markdown;
     }
+
+    /**
+     * Generate a tree representation of this node and its dependencies.
+     *
+     * @param bool $useFullPath Whether to use full file paths or try to convert to FQCN
+     * @return string
+     */
+    public function toTree(bool $useFullPath = false): string
+    {
+        return $this->generateTreeOutput($this, '', true, [], $useFullPath);
+    }
+
+    /**
+     * Helper method to generate the tree output recursively.
+     *
+     * @param DependencyNode $node The current node
+     * @param string $prefix The prefix for the current line
+     * @param bool $isLast Whether this is the last child of its parent
+     * @param array $visited Array of visited file paths to avoid infinite recursion
+     * @param bool $useFullPath Whether to use full file paths or try to convert to FQCN
+     * @return string
+     */
+    private function generateTreeOutput(DependencyNode $node, string $prefix, bool $isLast, array $visited, bool $useFullPath): string
+    {
+        $filePath = $node->getFilePath();
+        
+        if (in_array($filePath, $visited)) {
+            return '';
+        }
+        
+        $visited[] = $filePath;
+        
+        $displayPath = $useFullPath ? $filePath : $this->filePathToFQCN($filePath);
+        
+        $result = $prefix . ($isLast ? '└── ' : '├── ') . $displayPath . PHP_EOL;
+        
+        $dependencies = $node->getDependencies();
+        uksort($dependencies, 'strnatcmp');
+        
+        $i = 0;
+        $dependencyCount = count($dependencies);
+        
+        foreach ($dependencies as $dependency) {
+            $isLastDependency = (++$i === $dependencyCount);
+            $newPrefix = $prefix . ($isLast ? '    ' : '│   ');
+            $result .= $this->generateTreeOutput($dependency, $newPrefix, $isLastDependency, $visited, $useFullPath);
+        }
+        
+        return $result;
+    }
+
+    /**
+     * Convert a file path to a FQCN-like format.
+     *
+     * @param string $filePath
+     * @return string
+     */
+    private function filePathToFQCN(string $filePath): string
+    {
+        $path = preg_replace('/\.php$/', '', $filePath);
+        
+        $srcPos = strpos($path, '/src/');
+        if ($srcPos !== false) {
+            $path = substr($path, $srcPos + 5); // +5 to skip '/src/'
+        }
+        
+        $path = str_replace('/', '\\', $path);
+        
+        return $path;
+    }
 }
