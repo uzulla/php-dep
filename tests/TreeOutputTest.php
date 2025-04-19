@@ -52,8 +52,8 @@ class TreeOutputTest extends TestCase
             
             $this->assertFileExists($outputFile);
             $fileContent = file_get_contents($outputFile);
-            $this->assertStringContainsString('└── ', $fileContent);
-            $this->assertStringContainsString('    └── ', $fileContent);
+            $this->assertStringContainsString('# File:', $fileContent);
+            $this->assertStringContainsString('## Dependencies', $fileContent);
             $this->assertStringContainsString(basename($mainFile, '.php'), $fileContent);
             $this->assertStringContainsString(basename($depFile, '.php'), $fileContent);
             $this->assertStringContainsString(basename($nestedDepFile, '.php'), $fileContent);
