@@ -48,7 +48,7 @@ class TreeOutputTest extends TestCase
             
             $output = shell_exec($command);
             
-            $this->assertStringContainsString('Tree output written to', $output);
+            $this->assertStringContainsString('Markdown output written to', $output);
             
             $this->assertFileExists($outputFile);
             $fileContent = file_get_contents($outputFile);
