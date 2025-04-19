@@ -504,6 +504,21 @@ class DependencyNode
             return preg_match($implementsPattern, $content);
         }
         
+        if (in_array($shortInterfaceName, ['ClientInterface', 'PromiseInterface', 'RequestInterface', 'ResponseInterface', 'UriInterface'])) {
+            if ($shortInterfaceName === 'ClientInterface') {
+                if (strpos($content, 'Psr\\Http\\Client\\ClientInterface') !== false && 
+                    preg_match('/class\s+\w+(?:\s+extends\s+\w+)?\s+implements\s+/i', $content)) {
+                    return true;
+                }
+            }
+            
+            $psrPattern = '/use\s+Psr\\\\Http\\\\(?:Message|Client)\\\\' . preg_quote($shortInterfaceName, '/') . '/i';
+            if (preg_match($psrPattern, $content) && 
+                preg_match('/class\s+\w+(?:\s+extends\s+\w+)?\s+implements\s+/i', $content)) {
+                return true;
+            }
+        }
+        
         return false;
     }
     
