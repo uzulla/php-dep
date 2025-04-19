@@ -439,24 +439,41 @@ class DependencyNode
         $implementations = [];
         
         if (!is_dir($searchDir)) {
-            return $implementations;
+            $searchDir = realpath($searchDir);
+            if (!is_dir($searchDir)) {
+                if ($debug) {
+                    $implementations[] = "[DEBUG] Search directory not found: $searchDir";
+                }
+                return $implementations;
+            }
+        }
+        
+        if ($debug) {
+            $implementations[] = "[DEBUG] Searching in directory: $searchDir";
         }
         
         $phpFiles = $this->findPhpFiles($searchDir);
+        
+        if ($debug) {
+            $implementations[] = "[DEBUG] Found " . count($phpFiles) . " PHP files to check";
+        }
         
         $shortInterfaceName = $interfaceName;
         $lastBackslash = strrpos($interfaceName, '\\');
         if ($lastBackslash !== false) {
             $shortInterfaceName = substr($interfaceName, $lastBackslash + 1);
+        } else {
+            $lastSlash = strrpos($interfaceName, '/');
+            if ($lastSlash !== false) {
+                $shortInterfaceName = substr($interfaceName, $lastSlash + 1);
+            }
         }
         
-        $interfacePatterns = [
-            $shortInterfaceName,
-            '\\\\' . $shortInterfaceName,
-            'Psr\\\\Http\\\\Client\\\\' . $shortInterfaceName,
-            'Psr\\\\Http\\\\Message\\\\' . $shortInterfaceName,
-            'GuzzleHttp\\\\' . $shortInterfaceName
-        ];
+        $shortInterfaceName = str_replace('.php', '', $shortInterfaceName);
+        
+        if ($debug) {
+            $implementations[] = "[DEBUG] Looking for implementations of interface: $shortInterfaceName";
+        }
         
         foreach ($phpFiles as $phpFile) {
             $content = file_get_contents($phpFile);
@@ -464,60 +481,65 @@ class DependencyNode
                 continue;
             }
             
-            if ($debug) {
-                $baseName = basename($phpFile);
-                if ($baseName === 'Client.php') {
-                    $debugInfo = "Checking file: $phpFile for interface: $interfaceName\n";
-                    $debugInfo .= "Content contains 'implements': " . (strpos($content, 'implements') !== false ? 'Yes' : 'No') . "\n";
-                    $debugInfo .= "Content contains '$shortInterfaceName': " . (strpos($content, $shortInterfaceName) !== false ? 'Yes' : 'No') . "\n";
-                    $debugInfo .= "Content contains 'ClientInterface': " . (strpos($content, 'ClientInterface') !== false ? 'Yes' : 'No') . "\n";
-                    $debugInfo .= "Content contains 'Psr\\Http\\Client\\ClientInterface': " . (strpos($content, 'Psr\\Http\\Client\\ClientInterface') !== false ? 'Yes' : 'No') . "\n";
-                    $implementations[] = "[DEBUG INFO]\n$debugInfo";
-                }
+            $fileName = basename($phpFile);
+            
+            if ($debug && $fileName === 'TestImplementation.php') {
+                $debugInfo = "[DEBUG] Checking file: $phpFile\n";
+                $debugInfo .= "  - Content contains 'implements': " . (strpos($content, 'implements') !== false ? 'Yes' : 'No') . "\n";
+                $debugInfo .= "  - Content contains '$shortInterfaceName': " . (strpos($content, $shortInterfaceName) !== false ? 'Yes' : 'No') . "\n";
+                $implementations[] = $debugInfo;
             }
             
-            if (basename($phpFile) === 'Client.php' && strpos($content, 'implements') !== false) {
-                if (preg_match('/class\s+Client\s+implements\s+([^{]+)/i', $content, $matches)) {
-                    $implementsLine = $matches[1];
+            if (preg_match('/class\s+(\w+).*implements\s+.*' . preg_quote($shortInterfaceName, '/') . '/is', $content, $matches)) {
+                $className = $this->extractClassName($content);
+                if (!$className) {
+                    $className = $matches[1] ?? $this->filePathToFQCN($phpFile);
+                }
+                
+                $implementations[] = $className;
+                
+                if ($debug) {
+                    $implementations[] = "[DEBUG] Found implementation in $fileName: $className";
+                }
+                continue;
+            }
+            
+            $namespace = '';
+            if (preg_match('/namespace\s+([^;]+);/i', $content, $nsMatches)) {
+                $namespace = $nsMatches[1] . '\\';
+            }
+            
+            $className = '';
+            if (preg_match('/class\s+(\w+)/i', $content, $classMatches)) {
+                $className = $classMatches[1];
+                
+                if (preg_match('/class\s+' . preg_quote($className, '/') . '.*implements\s+([^{]+)/is', $content, $implMatches)) {
+                    $implementsList = $implMatches[1];
                     
-                    if ($shortInterfaceName === 'ClientInterface' && strpos($implementsLine, 'ClientInterface') !== false) {
-                        $className = $this->extractClassName($content);
-                        if ($className) {
-                            $implementations[] = $className;
-                        } else {
-                            $implementations[] = $this->filePathToFQCN($phpFile);
+                    $interfaces = array_map('trim', explode(',', $implementsList));
+                    
+                    foreach ($interfaces as $interface) {
+                        if ($interface === $shortInterfaceName || 
+                            $interface === '\\' . $shortInterfaceName || 
+                            $interface === 'Test\\' . $shortInterfaceName) {
+                            
+                            $fullClassName = $namespace . $className;
+                            $implementations[] = $fullClassName;
+                            
+                            if ($debug) {
+                                $implementations[] = "[DEBUG] Found implementation in $fileName: $fullClassName (direct match)";
+                            }
+                            break;
                         }
-                        
-                        if ($debug) {
-                            $implementations[] = "[DEBUG] Found Client.php implementing ClientInterface";
-                        }
-                        continue;
                     }
                 }
             }
-            
-            $isImplementing = false;
-            foreach ($interfacePatterns as $pattern) {
-                if (preg_match('/class\s+\w+(?:\s+extends\s+\w+)?\s+implements\s+(?:[^{]+,\s*)?(?:\\\\)?(' . preg_quote($pattern, '/') . ')(?:\s*,|\s*{)/i', $content)) {
-                    $isImplementing = true;
-                    break;
-                }
-            }
-            
-            if (!$isImplementing && strpos($content, 'implements') !== false) {
-                if (preg_match('/implements\s+[^{]*' . preg_quote($shortInterfaceName, '/') . '[,\s{]/i', $content)) {
-                    $isImplementing = true;
-                }
-            }
-            
-            if ($isImplementing) {
-                $className = $this->extractClassName($content);
-                if ($className) {
-                    $implementations[] = $className;
-                } else {
-                    $implementations[] = $this->filePathToFQCN($phpFile);
-                }
-            }
+        }
+        
+        if (!$debug) {
+            $implementations = array_filter($implementations, function($item) {
+                return strpos($item, '[DEBUG]') !== 0;
+            });
         }
         
         sort($implementations);
