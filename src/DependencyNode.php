@@ -391,7 +391,31 @@ class DependencyNode
      */
     private function isInterface(string $path): bool
     {
-        return (strpos($path, 'Interface') !== false);
+        if (strpos($path, 'Interface') !== false) {
+            return true;
+        }
+        
+        if (strpos($path, '\Psr\\') !== false && substr($path, -9) === 'Interface') {
+            return true;
+        }
+        
+        $commonInterfaces = [
+            'ClientInterface',
+            'PromiseInterface',
+            'RequestInterface',
+            'ResponseInterface',
+            'UriInterface',
+            'StreamInterface',
+            'MessageInterface'
+        ];
+        
+        foreach ($commonInterfaces as $interface) {
+            if (substr($path, -strlen($interface)) === $interface) {
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     /**
