@@ -1,0 +1,106 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use PhpDep\EnhancedDependencyAnalyzer;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Input\InputArgument;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Output\OutputInterface;
+
+$application = new Application('Enhanced PHP Dependency Analyzer', '0.1.0');
+
+$analyzeCommand = $application->register('analyze')
+    ->setDescription('Analyze PHP file dependencies with enhanced detection')
+    ->addArgument('file', InputArgument::REQUIRED, 'Path to the PHP file to analyze')
+    ->addOption('recursive', 'r', InputOption::VALUE_NONE, 'Analyze dependencies recursively (default: true)')
+    ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Output format (text, json, markdown)', 'markdown')
+    ->addOption('composer', 'c', InputOption::VALUE_REQUIRED, 'Path to composer.json file')
+    ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output file path (for markdown format)')
+    ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
+    ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
+    ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
+    ->setCode(function (InputInterface $input, OutputInterface $output) {
+        $filePath = $input->getArgument('file');
+        $recursive = true; // Always recursive by default
+        $format = $input->getOption('format');
+        $composerJsonPath = $input->getOption('composer');
+        $outputFilePath = $input->getOption('output');
+        $includeAutoload = $input->getOption('include-autoload');
+        $textItemPrefix = $input->getOption('text-item-prefix');
+        
+        // Create an enhanced analyzer
+        $analyzer = new EnhancedDependencyAnalyzer(
+            null,
+            null,
+            true,
+            $includeAutoload
+        );
+        
+        try {
+            // Analyze the file
+            $node = $analyzer->analyze($filePath, $recursive);
+            
+            if ($format === 'json') {
+                $dependencies = $node->getAllDependencyPaths();
+                $jsonOutput = json_encode([
+                    'file' => $filePath,
+                    'dependencies' => $dependencies,
+                ], JSON_PRETTY_PRINT);
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $jsonOutput);
+                    $output->writeln("<info>JSON output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($jsonOutput);
+                }
+            } elseif ($format === 'markdown') {
+                $markdown = $node->toMarkdown();
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $markdown);
+                    $output->writeln("<info>Markdown output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($markdown);
+                }
+            } elseif ($input->getOption('dep-tree')) {
+                $output->writeln("<info>Enhanced dependency tree for {$filePath}:</info>");
+                
+                $treeOutput = $node->toTree();
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $treeOutput);
+                    $output->writeln("<info>Tree output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($treeOutput);
+                }
+                
+                // Return early to avoid falling through to the default format
+                return 0;
+            } else {
+                $output->writeln("<info>Dependencies for {$filePath}:</info>");
+                
+                $dependencies = $node->getAllDependencyPaths();
+                
+                if (empty($dependencies)) {
+                    $output->writeln('  <comment>No dependencies found.</comment>');
+                } else {
+                    foreach ($dependencies as $dependency) {
+                        $output->writeln("{$textItemPrefix}{$dependency}");
+                    }
+                    
+                    $output->writeln("\n<info>Total dependencies: " . count($dependencies) . "</info>");
+                }
+            }
+            
+            return 0;
+        } catch (\Exception $e) {
+            $output->writeln("<error>{$e->getMessage()}</error>");
+            return 1;
+        }
+    });
+
+$application->setDefaultCommand('analyze', true);
+$application->run();
