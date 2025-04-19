@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace PhpDep;
 
 /**
@@ -291,5 +293,199 @@ class DependencyNode
         }
         
         return $markdown;
+    }
+
+    /**
+     * Generate a tree representation of this node and its dependencies.
+     *
+     * @param bool $useFullPath Whether to use full file paths or try to convert to FQCN
+     * @param array|null $sourceDirs Custom source directories to use for FQCN conversion
+     * @return string
+     */
+    public function toTree(bool $useFullPath = false, ?array $sourceDirs = null): string
+    {
+        return $this->generateTreeOutput($this, '', true, [], $useFullPath, $sourceDirs);
+    }
+
+    /**
+     * Helper method to generate the tree output recursively.
+     *
+     * @param DependencyNode $node The current node
+     * @param string $prefix The prefix for the current line
+     * @param bool $isLast Whether this is the last child of its parent
+     * @param array $visited Array of visited file paths to avoid infinite recursion
+     * @param bool $useFullPath Whether to use full file paths or try to convert to FQCN
+     * @param array|null $sourceDirs Custom source directories to use for FQCN conversion
+     * @return string
+     */
+    private function generateTreeOutput(
+        DependencyNode $node, 
+        string $prefix, 
+        bool $isLast, 
+        array $visited, 
+        bool $useFullPath,
+        ?array $sourceDirs = null
+    ): string {
+        $filePath = $node->getFilePath();
+        
+        if (in_array($filePath, $visited)) {
+            return '';
+        }
+        
+        $visited[] = $filePath;
+        
+        $displayPath = $useFullPath ? $filePath : $this->filePathToFQCN($filePath, $sourceDirs);
+        
+        $result = $prefix . ($isLast ? '└── ' : '├── ') . $displayPath . PHP_EOL;
+        
+        $dependencies = $node->getDependencies();
+        uksort($dependencies, 'strnatcmp');
+        
+        $i = 0;
+        $dependencyCount = count($dependencies);
+        
+        foreach ($dependencies as $dependency) {
+            $isLastDependency = (++$i === $dependencyCount);
+            $newPrefix = $prefix . ($isLast ? '    ' : '│   ');
+            $result .= $this->generateTreeOutput(
+                $dependency, 
+                $newPrefix, 
+                $isLastDependency, 
+                $visited, 
+                $useFullPath,
+                $sourceDirs
+            );
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * Find all PHP files in a directory recursively.
+     *
+     * @param string $dir
+     * @return array
+     */
+    private function findPhpFiles(string $dir): array
+    {
+        $phpFiles = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS)
+        );
+        
+        foreach ($iterator as $file) {
+            if ($file->isFile() && $file->getExtension() === 'php') {
+                $phpFiles[] = $file->getPathname();
+            }
+        }
+        
+        return $phpFiles;
+    }
+
+
+    /**
+     * Convert a file path to a FQCN-like format.
+     *
+     * @param string $filePath
+     * @param array|null $sourceDirs Custom source directories to check
+     * @return string
+     */
+    private function filePathToFQCN(string $filePath, ?array $sourceDirs = null): string
+    {
+        $path = preg_replace('/\.php$/', '', $filePath);
+        
+        $composerSourceDirs = $this->getComposerSourceDirs($filePath);
+        
+        $sourceDirectories = $sourceDirs ?? $composerSourceDirs ?? [
+            '/src/', 
+            '/lib/', 
+            '/app/', 
+            '/classes/', 
+            '/include/', 
+            '/source/',
+            '/core/',
+            '/modules/'
+        ];
+        
+        $originalPath = $path;
+        foreach ($sourceDirectories as $sourceDir) {
+            $sourceDir = '/' . trim($sourceDir, '/') . '/';
+            $pos = strpos($path, $sourceDir);
+            if ($pos !== false) {
+                $path = substr($path, $pos + strlen($sourceDir));
+                break;
+            }
+        }
+        
+        if ($path === $originalPath) {
+            $pathParts = explode('/', $path);
+            array_pop($pathParts); // Remove filename
+            if (!empty($pathParts)) {
+                $lastDir = end($pathParts);
+                if (preg_match('/^[A-Z]/', $lastDir)) {
+                    $path = $lastDir . '/' . basename($path);
+                }
+            }
+        }
+        
+        $path = str_replace('/', '\\', $path);
+        
+        return $path;
+    }
+    
+    /**
+     * Get source directories from composer.json if available.
+     *
+     * @param string $filePath Path to a file in the project
+     * @return array|null Array of source directories or null if composer.json not found
+     */
+    private function getComposerSourceDirs(string $filePath): ?array
+    {
+        $dir = dirname($filePath);
+        $sourceDirs = [];
+        
+        while ($dir !== '/' && strlen($dir) > 1) {
+            $composerPath = $dir . '/composer.json';
+            if (file_exists($composerPath)) {
+                $composerJson = json_decode(file_get_contents($composerPath), true);
+                if (json_last_error() === JSON_ERROR_NONE && isset($composerJson['autoload'])) {
+                    if (isset($composerJson['autoload']['psr-4'])) {
+                        foreach ($composerJson['autoload']['psr-4'] as $namespace => $path) {
+                            if (is_array($path)) {
+                                foreach ($path as $subPath) {
+                                    $sourceDirs[] = '/' . trim($subPath, '/') . '/';
+                                }
+                            } else {
+                                $sourceDirs[] = '/' . trim($path, '/') . '/';
+                            }
+                        }
+                    }
+                    
+                    if (isset($composerJson['autoload']['psr-0'])) {
+                        foreach ($composerJson['autoload']['psr-0'] as $namespace => $path) {
+                            if (is_array($path)) {
+                                foreach ($path as $subPath) {
+                                    $sourceDirs[] = '/' . trim($subPath, '/') . '/';
+                                }
+                            } else {
+                                $sourceDirs[] = '/' . trim($path, '/') . '/';
+                            }
+                        }
+                    }
+                    
+                    if (isset($composerJson['autoload']['classmap'])) {
+                        foreach ($composerJson['autoload']['classmap'] as $path) {
+                            $sourceDirs[] = '/' . trim($path, '/') . '/';
+                        }
+                    }
+                    
+                    return !empty($sourceDirs) ? $sourceDirs : null;
+                }
+                break;
+            }
+            $dir = dirname($dir);
+        }
+        
+        return null;
     }
 }

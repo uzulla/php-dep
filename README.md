@@ -13,6 +13,9 @@ A tool to analyze PHP file dependencies. This tool helps with refactoring and un
 - Support for Composer autoloading
 - Exclude vendor/autoload.php by default (can be included with an option)
 - Output in text, JSON, or Markdown format (Markdown is default)
+- Display dependencies in a tree structure with ASCII art
+- Enhanced dependency detection for modern PHP codebases using autoloaders
+- Detect dependencies from type hints, class inheritance, interface implementations, and trait usage
 - Use as a CLI tool or as a library
 
 ## sample output
@@ -109,6 +112,11 @@ php-dep path/to/your/file.php --format=text
 
 # Output in JSON format
 php-dep path/to/your/file.php --format=json
+
+# Display dependencies in a tree structure
+php-dep path/to/your/file.php --dep-tree
+
+
 
 # Output in Markdown format to a file
 php-dep path/to/your/file.php --output=dependencies.md

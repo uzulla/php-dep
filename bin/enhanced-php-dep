@@ -1,41 +1,19 @@
 #!/usr/bin/env php
 <?php
 
-// Find and require the autoloader
-$autoloadPaths = [
-    __DIR__ . '/../vendor/autoload.php',
-    __DIR__ . '/../../../autoload.php',
-];
+require __DIR__ . '/../vendor/autoload.php';
 
-$autoloaderFound = false;
-foreach ($autoloadPaths as $autoloadPath) {
-    if (file_exists($autoloadPath)) {
-        require_once $autoloadPath;
-        $autoloaderFound = true;
-        break;
-    }
-}
-
-if (!$autoloaderFound) {
-    fwrite(STDERR, 'Autoloader not found. Please run "composer install".' . PHP_EOL);
-    exit(1);
-}
-
-use PhpDep\DependencyAnalyzer;
-use PhpDep\Parser\PhpFileParser;
-use PhpDep\Resolver\ComposerResolver;
+use PhpDep\EnhancedDependencyAnalyzer;
 use Symfony\Component\Console\Application;
-use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
-$application = new Application('PHP Dependency Analyzer', '1.0.0');
+$application = new Application('Enhanced PHP Dependency Analyzer', '0.1.0');
 
-// Create the analyze command
 $analyzeCommand = $application->register('analyze')
-    ->setDescription('Analyze PHP file dependencies')
+    ->setDescription('Analyze PHP file dependencies with enhanced detection')
     ->addArgument('file', InputArgument::REQUIRED, 'Path to the PHP file to analyze')
     ->addOption('recursive', 'r', InputOption::VALUE_NONE, 'Analyze dependencies recursively (default: true)')
     ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Output format (text, json, markdown)', 'markdown')
@@ -44,7 +22,6 @@ $analyzeCommand = $application->register('analyze')
     ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
     ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
     ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
-    ->addOption('source-dir', 's', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Source directory for FQCN conversion (can be specified multiple times)')
     ->setCode(function (InputInterface $input, OutputInterface $output) {
         $filePath = $input->getArgument('file');
         $recursive = true; // Always recursive by default
@@ -54,45 +31,19 @@ $analyzeCommand = $application->register('analyze')
         $includeAutoload = $input->getOption('include-autoload');
         $textItemPrefix = $input->getOption('text-item-prefix');
         
+        // Create an enhanced analyzer
+        $analyzer = new EnhancedDependencyAnalyzer(
+            null,
+            null,
+            true,
+            $includeAutoload
+        );
+        
         try {
-            // Create a parser
-            $parser = new PhpFileParser();
-            
-            // Create a resolver
-            $resolver = new ComposerResolver($composerJsonPath);
-            
-            // Determine if we need to load file contents
-            $loadContents = $format === 'markdown';
-            
-            // Create an analyzer with the custom resolver
-            $analyzer = new DependencyAnalyzer($parser, $resolver, $loadContents, $includeAutoload);
-            
             // Analyze the file
             $node = $analyzer->analyze($filePath, $recursive);
             
-            if ($input->getOption('dep-tree')) {
-                $output->writeln("<info>Dependency tree for {$filePath}:</info>");
-                
-                // Get source directories from command line option
-                $sourceDirs = $input->getOption('source-dir');
-                
-                // If source directories are specified, show them
-                if (!empty($sourceDirs)) {
-                    $output->writeln("<info>Using source directories: " . implode(', ', $sourceDirs) . "</info>");
-                }
-                
-                $treeOutput = $node->toTree(false, $sourceDirs);
-                
-                if ($outputFilePath) {
-                    file_put_contents($outputFilePath, $treeOutput);
-                    $output->writeln("<info>Tree output written to {$outputFilePath}</info>");
-                } else {
-                    $output->writeln($treeOutput);
-                }
-                
-                // Return early to avoid falling through to the default format
-                return 0;
-            } elseif ($format === 'json') {
+            if ($format === 'json') {
                 $dependencies = $node->getAllDependencyPaths();
                 $jsonOutput = json_encode([
                     'file' => $filePath,
@@ -114,6 +65,20 @@ $analyzeCommand = $application->register('analyze')
                 } else {
                     $output->writeln($markdown);
                 }
+            } elseif ($input->getOption('dep-tree')) {
+                $output->writeln("<info>Enhanced dependency tree for {$filePath}:</info>");
+                
+                $treeOutput = $node->toTree();
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $treeOutput);
+                    $output->writeln("<info>Tree output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($treeOutput);
+                }
+                
+                // Return early to avoid falling through to the default format
+                return 0;
             } else {
                 $output->writeln("<info>Dependencies for {$filePath}:</info>");
                 
@@ -130,14 +95,12 @@ $analyzeCommand = $application->register('analyze')
                 }
             }
             
-            return Command::SUCCESS;
+            return 0;
         } catch (\Exception $e) {
-            $output->writeln("<error>Error: {$e->getMessage()}</error>");
-            return Command::FAILURE;
+            $output->writeln("<error>{$e->getMessage()}</error>");
+            return 1;
         }
     });
 
-// Set the default command to 'analyze'
 $application->setDefaultCommand('analyze', true);
-
 $application->run();
