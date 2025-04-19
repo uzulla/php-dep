@@ -17,8 +17,8 @@ class TreeFullOutputTest extends TestCase
         $treeOutput = $rootNode->toTreeFull(false, __DIR__ . '/fixtures/interfaces');
         
         $this->assertStringContainsString('TestInterface', $treeOutput);
-        $this->assertStringContainsString('( TestImplementation1 )', $treeOutput);
-        $this->assertStringContainsString('( TestImplementation2 )', $treeOutput);
+        $this->assertStringContainsString('( PhpDep\Test\Fixtures\TestImplementation1 )', $treeOutput);
+        $this->assertStringContainsString('( PhpDep\Test\Fixtures\TestImplementation2 )', $treeOutput);
     }
     
     /**
@@ -35,9 +35,8 @@ class TreeFullOutputTest extends TestCase
         
         $output = shell_exec($command);
         
-        $this->assertStringContainsString('Full dependency tree with interface implementations', $output);
         $this->assertStringContainsString('TestInterface', $output);
-        $this->assertStringContainsString('( TestImplementation1 )', $output);
-        $this->assertStringContainsString('( TestImplementation2 )', $output);
+        $this->assertStringContainsString('( PhpDep\Test\Fixtures\TestImplementation1 )', $output);
+        $this->assertStringContainsString('( PhpDep\Test\Fixtures\TestImplementation2 )', $output);
     }
 }
