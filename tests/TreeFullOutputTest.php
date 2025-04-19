@@ -26,9 +26,11 @@ class TreeFullOutputTest extends TestCase
      */
     public function testCliOutputWithDepTreeFullOption(): void
     {
+        $phpDepPath = realpath(dirname(__DIR__) . '/bin/php-dep');
+        
         $command = sprintf(
-            'php %s/bin/php-dep %s/fixtures/interfaces/TestInterface.php --dep-tree-full=%s/fixtures/interfaces 2>&1',
-            dirname(__DIR__),
+            'php %s %s/fixtures/interfaces/TestInterface.php --dep-tree-full=%s/fixtures/interfaces 2>&1',
+            $phpDepPath,
             __DIR__,
             __DIR__
         );
