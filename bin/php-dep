@@ -44,6 +44,7 @@ $analyzeCommand = $application->register('analyze')
     ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
     ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
     ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
+    ->addOption('source-dir', 's', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Source directory for FQCN conversion (can be specified multiple times)')
     ->setCode(function (InputInterface $input, OutputInterface $output) {
         $filePath = $input->getArgument('file');
         $recursive = true; // Always recursive by default
@@ -72,7 +73,15 @@ $analyzeCommand = $application->register('analyze')
             if ($input->getOption('dep-tree')) {
                 $output->writeln("<info>Dependency tree for {$filePath}:</info>");
                 
-                $treeOutput = $node->toTree();
+                // Get source directories from command line option
+                $sourceDirs = $input->getOption('source-dir');
+                
+                // If source directories are specified, show them
+                if (!empty($sourceDirs)) {
+                    $output->writeln("<info>Using source directories: " . implode(', ', $sourceDirs) . "</info>");
+                }
+                
+                $treeOutput = $node->toTree(false, $sourceDirs);
                 
                 if ($outputFilePath) {
                     file_put_contents($outputFilePath, $treeOutput);
