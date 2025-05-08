@@ -247,7 +247,7 @@ class CliOutputTest extends TestCase
             file_put_contents($depFile, '<?php echo "Dependency file"; ?>');
             
             $command = sprintf(
-                'php %s/bin/php-dep %s --name-only',
+                'php %s/bin/php-dep analyze %s --name-only',
                 dirname(__DIR__),
                 $mainFile
             );
@@ -263,7 +263,7 @@ class CliOutputTest extends TestCase
             // Test with output file
             $outputFile = $tempDir . '/output.txt';
             $command = sprintf(
-                'php %s/bin/php-dep %s --name-only --output=%s',
+                'php %s/bin/php-dep analyze %s --name-only --output=%s',
                 dirname(__DIR__),
                 $mainFile,
                 $outputFile
