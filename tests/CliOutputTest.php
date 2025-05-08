@@ -228,4 +228,73 @@ class CliOutputTest extends TestCase
             }
         }
     }
+
+    /**
+     * Test name-only output format
+     */
+    public function testNameOnlyOutput()
+    {
+        // Create a temporary directory for test files
+        $tempDir = sys_get_temp_dir() . '/php-dep-test-' . uniqid();
+        mkdir($tempDir, 0755, true);
+        
+        try {
+            // Create test files
+            $mainFile = $tempDir . '/main.php';
+            $depFile = $tempDir . '/dependency.php';
+            
+            file_put_contents($mainFile, '<?php require_once "dependency.php"; echo "Main file"; ?>');
+            file_put_contents($depFile, '<?php echo "Dependency file"; ?>');
+            
+            $command = sprintf(
+                'php %s/bin/php-dep analyze %s --name-only',
+                dirname(__DIR__),
+                $mainFile
+            );
+            
+            $output = shell_exec($command);
+            
+            // Verify that the output contains only the dependency file paths
+            $this->assertStringContainsString($depFile, $output);
+            $this->assertStringNotContainsString('# File:', $output);
+            $this->assertStringNotContainsString('```php', $output);
+            $this->assertStringNotContainsString('## Dependencies', $output);
+            
+            // Test with output file
+            $outputFile = $tempDir . '/output.txt';
+            $command = sprintf(
+                'php %s/bin/php-dep analyze %s --name-only --output=%s',
+                dirname(__DIR__),
+                $mainFile,
+                $outputFile
+            );
+            
+            $output = shell_exec($command);
+            
+            // Verify that the output indicates the file was written
+            $this->assertStringContainsString('File names output written to', $output);
+            
+            // Verify the output file contains only file paths
+            $this->assertFileExists($outputFile);
+            $fileContent = file_get_contents($outputFile);
+            $this->assertStringContainsString($depFile, $fileContent);
+            $this->assertStringNotContainsString('# File:', $fileContent);
+            $this->assertStringNotContainsString('```php', $fileContent);
+            
+        } finally {
+            // Clean up
+            if (file_exists($mainFile)) {
+                unlink($mainFile);
+            }
+            if (file_exists($depFile)) {
+                unlink($depFile);
+            }
+            if (isset($outputFile) && file_exists($outputFile)) {
+                unlink($outputFile);
+            }
+            if (is_dir($tempDir)) {
+                rmdir($tempDir);
+            }
+        }
+    }
 }
