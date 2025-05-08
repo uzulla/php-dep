@@ -118,6 +118,10 @@ php-dep path/to/your/file.php --format=json
 # Display dependencies in a tree structure
 php-dep path/to/your/file.php --dep-tree
 
+# Display only file names of dependencies
+php-dep path/to/your/file.php --name-only
+
+
 # Output in Markdown format to a file
 php-dep path/to/your/file.php --output=dependencies.md
 

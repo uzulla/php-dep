@@ -45,6 +45,7 @@ $analyzeCommand = $application->register('analyze')
     ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
     ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
     ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
+    ->addOption('name-only', null, InputOption::VALUE_NONE, 'Display only the file names of dependencies')
     ->addOption('source-dir', 's', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Source directory for FQCN conversion (can be specified multiple times)')
     ->setCode(function (InputInterface $input, OutputInterface $output) {
         $filePath = $input->getArgument('file');
@@ -89,6 +90,20 @@ $analyzeCommand = $application->register('analyze')
                     $output->writeln("<info>Tree output written to {$outputFilePath}</info>");
                 } else {
                     $output->writeln($treeOutput);
+                }
+                
+                // Return early to avoid falling through to the default format
+                return 0;
+            } elseif ($input->getOption('name-only')) {
+                $dependencies = $node->getAllDependencyPaths();
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, implode(PHP_EOL, $dependencies) . PHP_EOL);
+                    $output->writeln("<info>File names output written to {$outputFilePath}</info>");
+                } else {
+                    foreach ($dependencies as $dependency) {
+                        $output->writeln($dependency);
+                    }
                 }
                 
                 // Return early to avoid falling through to the default format
