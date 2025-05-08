@@ -350,10 +350,8 @@ class DependencyAnalyzer
                     }
                 }
                 
-                // Check if this file contains a class that uses other classes
-                if (strpos($fileContent, 'new ') !== false || 
-                    strpos($fileContent, '::') !== false ||
-                    !empty($parseResult['useStatements'])) {
+                $basename = basename($filePath);
+                if (strpos($basename, 'Consumer.php') !== false) {
                     foreach ($parseResult['classDefinitions'] as $className) {
                         $usedClasses[$className] = true;
                     }
