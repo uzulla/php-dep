@@ -326,31 +326,27 @@ class DependencyAnalyzer
                 
                 $fileContent = file_get_contents($filePath);
                 
-                preg_match_all('/\b([A-Z][A-Za-z0-9_\\\\]+)/', $fileContent, $matches);
+                preg_match_all('/new\s+([A-Za-z0-9_\\\\]+)/', $fileContent, $newMatches);
+                if (!empty($newMatches[1])) {
+                    foreach ($newMatches[1] as $className) {
+                        $this->markClassAsUsed($className, $definedClasses, $usedClasses);
+                    }
+                }
                 
-                if (!empty($matches[1])) {
-                    foreach ($matches[1] as $potentialClass) {
-                        $normalizedClass = str_replace('\\\\', '\\', $potentialClass);
-                        
-                        // Check if this is a defined class
-                        foreach (array_keys($definedClasses) as $definedClass) {
-                            if ($normalizedClass === $definedClass) {
-                                $usedClasses[$definedClass] = true;
-                                continue;
-                            }
-                            
-                            if (strpos($definedClass, '\\' . $normalizedClass) !== false) {
-                                $usedClasses[$definedClass] = true;
-                                continue;
-                            }
-                            
-                            $definedClassParts = explode('\\', $definedClass);
-                            $definedClassName = end($definedClassParts);
-                            
-                            if ($normalizedClass === $definedClassName) {
-                                $usedClasses[$definedClass] = true;
-                            }
-                        }
+                preg_match_all('/([A-Za-z0-9_\\\\]+)::[A-Za-z0-9_]+/', $fileContent, $staticMatches);
+                if (!empty($staticMatches[1])) {
+                    foreach ($staticMatches[1] as $className) {
+                        $this->markClassAsUsed($className, $definedClasses, $usedClasses);
+                    }
+                }
+                
+                foreach ($parseResult['useStatements'] as $useStatement) {
+                    $parts = explode('\\', $useStatement);
+                    $className = end($parts);
+                    
+                    preg_match_all('/\b' . preg_quote($className, '/') . '\b/', $fileContent, $matches);
+                    if (!empty($matches[0])) {
+                        $usedClasses[$useStatement] = true;
                     }
                 }
             } catch (\Exception $e) {
@@ -369,5 +365,32 @@ class DependencyAnalyzer
         sort($unusedClasses);
         
         return $unusedClasses;
+    }
+    
+    /**
+     * Mark a class as used, handling different formats of class names.
+     *
+     * @param string $className
+     * @param array $definedClasses
+     * @param array &$usedClasses
+     */
+    private function markClassAsUsed(string $className, array $definedClasses, array &$usedClasses): void
+    {
+        $normalizedClass = str_replace('\\\\', '\\', $className);
+        
+        if (isset($definedClasses[$normalizedClass])) {
+            $usedClasses[$normalizedClass] = true;
+            return;
+        }
+        
+        foreach (array_keys($definedClasses) as $definedClass) {
+            // Check if the class name is the last part of a defined class
+            $definedClassParts = explode('\\', $definedClass);
+            $definedClassName = end($definedClassParts);
+            
+            if ($normalizedClass === $definedClassName) {
+                $usedClasses[$definedClass] = true;
+            }
+        }
     }
 }
