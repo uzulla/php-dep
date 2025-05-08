@@ -149,6 +149,28 @@ php-dep analyze-dir path/to/directory --format=text
 
 # Display dependencies in a tree structure
 php-dep analyze-dir path/to/directory --dep-tree
+
+#### Find Unused Classes
+
+```bash
+# Find unused classes in a directory
+php-dep find-dead-class path/to/directory
+
+# Find unused classes in multiple directories
+php-dep find-dead-class path/to/directory1 path/to/directory2
+
+# Use a custom file pattern
+php-dep find-dead-class path/to/directory --pattern="*Controller.php"
+
+# Exclude specific directories from analysis
+php-dep find-dead-class path/to/directory --exclude-dirs=cache --exclude-dirs=logs
+
+# Output in JSON format
+php-dep find-dead-class path/to/directory --format=json
+
+# Output in Markdown format to a file
+php-dep find-dead-class path/to/directory --format=markdown --output=unused-classes.md
+```
 ```
 
 ### Library Usage

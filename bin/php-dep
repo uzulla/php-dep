@@ -334,4 +334,93 @@ $analyzeDirCommand = $application->register('analyze-dir')
 // Set the default command to 'analyze'
 $application->setDefaultCommand('analyze', false);
 
+// Add the find-dead-class command
+$findDeadClassCommand = $application->register('find-dead-class')
+    ->setDescription('Find unused PHP classes in directories')
+    ->addArgument('directories', InputArgument::IS_ARRAY | InputArgument::REQUIRED, 'Paths to directories to analyze (multiple directories can be specified)')
+    ->addOption('pattern', 'p', InputOption::VALUE_REQUIRED, 'File pattern to match (default: *.php)', '*.php')
+    ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Output format (text, json, markdown)', 'text')
+    ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output file path')
+    ->addOption('exclude-dirs', 'e', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Directories to exclude from analysis (can be specified multiple times)', ['vendor'])
+    ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each unused class line in text output format (default: "  - ")', '  - ')
+    ->setCode(function (InputInterface $input, OutputInterface $output) {
+        $directories = $input->getArgument('directories');
+        $pattern = $input->getOption('pattern');
+        $format = $input->getOption('format');
+        $outputFilePath = $input->getOption('output');
+        $excludeDirs = $input->getOption('exclude-dirs');
+        $textItemPrefix = $input->getOption('text-item-prefix');
+        
+        try {
+            // Create a parser
+            $parser = new PhpFileParser();
+            
+            // Create a resolver
+            $resolver = new ComposerResolver();
+            
+            // Create an analyzer
+            $analyzer = new DependencyAnalyzer($parser, $resolver);
+            
+            // Find all defined and used classes
+            $unusedClasses = $analyzer->findUnusedClasses($directories, $pattern, $excludeDirs);
+            
+            // Display the results
+            if ($format === 'json') {
+                $jsonOutput = json_encode([
+                    'directories' => $directories,
+                    'pattern' => $pattern,
+                    'excludeDirs' => $excludeDirs,
+                    'unusedClasses' => $unusedClasses,
+                ], JSON_PRETTY_PRINT);
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $jsonOutput);
+                    $output->writeln("<info>JSON output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($jsonOutput);
+                }
+            } elseif ($format === 'markdown') {
+                $markdown = "# Unused Classes\n\n";
+                $markdown .= "Directories analyzed: " . implode(', ', $directories) . "\n\n";
+                $markdown .= "Pattern: {$pattern}\n\n";
+                
+                if (empty($unusedClasses)) {
+                    $markdown .= "No unused classes found.\n";
+                } else {
+                    $markdown .= "## Unused Classes\n\n";
+                    
+                    foreach ($unusedClasses as $class) {
+                        $markdown .= "- `{$class}`\n";
+                    }
+                    
+                    $markdown .= "\nTotal unused classes: " . count($unusedClasses) . "\n";
+                }
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $markdown);
+                    $output->writeln("<info>Markdown output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($markdown);
+                }
+            } else {
+                $output->writeln("<info>Unused classes in specified directories:</info>");
+                
+                if (empty($unusedClasses)) {
+                    $output->writeln('  <comment>No unused classes found.</comment>');
+                } else {
+                    foreach ($unusedClasses as $class) {
+                        $output->writeln("{$textItemPrefix}{$class}");
+                    }
+                    
+                    $output->writeln("\n<info>Total unused classes: " . count($unusedClasses) . "</info>");
+                }
+            }
+            
+            return Command::SUCCESS;
+        } catch (\Exception $e) {
+            $output->writeln("<error>Error: {$e->getMessage()}</error>");
+            return Command::FAILURE;
+        }
+    });
+
 $application->run();

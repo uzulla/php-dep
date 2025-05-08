@@ -262,4 +262,112 @@ class DependencyAnalyzer
     {
         return $this->includeAutoload;
     }
+    
+    /**
+     * Find unused classes in the specified directories.
+     *
+     * @param array $directories Directories to analyze
+     * @param string $pattern File pattern to match (e.g., *.php)
+     * @param array $excludeDirs Directories to exclude from analysis
+     * @return array Array of unused class FQCNs
+     */
+    public function findUnusedClasses(array $directories, string $pattern = '*.php', array $excludeDirs = ['vendor']): array
+    {
+        $this->reset();
+        
+        $finder = new \Symfony\Component\Finder\Finder();
+        $finder->files()->name($pattern);
+        
+        foreach ($directories as $directory) {
+            if (!is_dir($directory)) {
+                throw new \InvalidArgumentException("Directory not found: {$directory}");
+            }
+            $finder->in($directory);
+        }
+        
+        foreach ($excludeDirs as $excludeDir) {
+            $finder->notPath($excludeDir);
+        }
+        
+        // Check if any files were found
+        if ($finder->count() === 0) {
+            throw new \RuntimeException("No files matching pattern '{$pattern}' found in the specified directories.");
+        }
+        
+        $definedClasses = [];
+        $usedClasses = [];
+        
+        foreach ($finder as $file) {
+            $filePath = $file->getRealPath();
+            
+            try {
+                // Parse the file
+                $parseResult = $this->parser->parse($filePath);
+                
+                foreach ($parseResult['classDefinitions'] as $className) {
+                    $definedClasses[$className] = $filePath;
+                }
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        
+        foreach ($finder as $file) {
+            $filePath = $file->getRealPath();
+            
+            try {
+                // Parse the file
+                $parseResult = $this->parser->parse($filePath);
+                
+                // Add used classes from use statements
+                foreach ($parseResult['useStatements'] as $useStatement) {
+                    $usedClasses[$useStatement] = true;
+                }
+                
+                $fileContent = file_get_contents($filePath);
+                
+                preg_match_all('/\b([A-Z][A-Za-z0-9_\\\\]+)/', $fileContent, $matches);
+                
+                if (!empty($matches[1])) {
+                    foreach ($matches[1] as $potentialClass) {
+                        $normalizedClass = str_replace('\\\\', '\\', $potentialClass);
+                        
+                        // Check if this is a defined class
+                        foreach (array_keys($definedClasses) as $definedClass) {
+                            if ($normalizedClass === $definedClass) {
+                                $usedClasses[$definedClass] = true;
+                                continue;
+                            }
+                            
+                            if (strpos($definedClass, '\\' . $normalizedClass) !== false) {
+                                $usedClasses[$definedClass] = true;
+                                continue;
+                            }
+                            
+                            $definedClassParts = explode('\\', $definedClass);
+                            $definedClassName = end($definedClassParts);
+                            
+                            if ($normalizedClass === $definedClassName) {
+                                $usedClasses[$definedClass] = true;
+                            }
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        
+        $unusedClasses = [];
+        
+        foreach ($definedClasses as $className => $filePath) {
+            if (!isset($usedClasses[$className])) {
+                $unusedClasses[] = $className;
+            }
+        }
+        
+        sort($unusedClasses);
+        
+        return $unusedClasses;
+    }
 }
