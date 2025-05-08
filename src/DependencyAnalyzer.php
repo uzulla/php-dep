@@ -350,8 +350,11 @@ class DependencyAnalyzer
                     }
                 }
                 
-                foreach ($parseResult['classDefinitions'] as $className) {
-                    if (preg_match('/\bfunction\s+[a-zA-Z0-9_]+\s*\(/', $fileContent)) {
+                // Check if this file contains a class that uses other classes
+                if (strpos($fileContent, 'new ') !== false || 
+                    strpos($fileContent, '::') !== false ||
+                    !empty($parseResult['useStatements'])) {
+                    foreach ($parseResult['classDefinitions'] as $className) {
                         $usedClasses[$className] = true;
                     }
                 }
