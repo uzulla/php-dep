@@ -26,7 +26,7 @@ class TreeOutputTest extends TestCase
             file_put_contents($nestedDepFile, '<?php echo "Nested dependency file"; ?>');
             
             $command = sprintf(
-                'php %s/bin/php-dep %s --dep-tree',
+                'php %s/bin/php-dep analyze %s --dep-tree',
                 dirname(__DIR__),
                 $mainFile
             );
@@ -42,7 +42,7 @@ class TreeOutputTest extends TestCase
             
             $outputFile = $tempDir . '/output.txt';
             $command = sprintf(
-                'php %s/bin/php-dep %s --dep-tree --output=%s',
+                'php %s/bin/php-dep analyze %s --dep-tree --output=%s',
                 dirname(__DIR__),
                 $mainFile,
                 $outputFile
@@ -93,7 +93,7 @@ class TreeOutputTest extends TestCase
             file_put_contents($fileB, '<?php require_once "fileA.php"; echo "File B"; ?>');
             
             $command = sprintf(
-                'php %s/bin/php-dep %s --dep-tree',
+                'php %s/bin/php-dep analyze %s --dep-tree',
                 dirname(__DIR__),
                 $fileA
             );

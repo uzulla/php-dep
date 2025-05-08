@@ -27,7 +27,7 @@ class CliOutputTest extends TestCase
             
             // Execute the CLI tool with the markdown format option but without specifying an output file
             $command = sprintf(
-                'php %s/bin/php-dep %s --format=markdown',
+                'php %s/bin/php-dep analyze %s --format=markdown',
                 dirname(__DIR__),
                 $mainFile
             );
@@ -46,7 +46,7 @@ class CliOutputTest extends TestCase
             // Now test with an output file
             $outputFile = $tempDir . '/output.md';
             $command = sprintf(
-                'php %s/bin/php-dep %s --output=%s',
+                'php %s/bin/php-dep analyze %s --output=%s',
                 dirname(__DIR__),
                 $mainFile,
                 $outputFile
@@ -103,7 +103,7 @@ class CliOutputTest extends TestCase
             
             // Execute the CLI tool with just the file path (no options)
             $command = sprintf(
-                'php %s/bin/php-dep %s',
+                'php %s/bin/php-dep analyze %s',
                 dirname(__DIR__),
                 $mainFile
             );
@@ -121,7 +121,7 @@ class CliOutputTest extends TestCase
             
             // Compare with explicit format option
             $explicitCommand = sprintf(
-                'php %s/bin/php-dep %s --format=markdown',
+                'php %s/bin/php-dep analyze %s --format=markdown',
                 dirname(__DIR__),
                 $mainFile
             );
@@ -163,7 +163,7 @@ class CliOutputTest extends TestCase
             file_put_contents($depFile, '<?php echo "Dependency file"; ?>');
             
             $customCommand = sprintf(
-                'php %s/bin/php-dep %s --format=text --text-item-prefix="@"',
+                'php %s/bin/php-dep analyze %s --format=text --text-item-prefix="@"',
                 dirname(__DIR__),
                 $mainFile
             );
@@ -205,7 +205,7 @@ class CliOutputTest extends TestCase
             file_put_contents($depFile, '<?php echo "Dependency file"; ?>');
             
             $emptyCommand = sprintf(
-                'php %s/bin/php-dep %s --format=text --text-item-prefix=""',
+                'php %s/bin/php-dep analyze %s --format=text --text-item-prefix=""',
                 dirname(__DIR__),
                 $mainFile
             );

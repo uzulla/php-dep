@@ -22,6 +22,7 @@ if (!$autoloaderFound) {
 }
 
 use PhpDep\DependencyAnalyzer;
+use PhpDep\DependencyNode;
 use PhpDep\Parser\PhpFileParser;
 use PhpDep\Resolver\ComposerResolver;
 use Symfony\Component\Console\Application;
@@ -137,7 +138,185 @@ $analyzeCommand = $application->register('analyze')
         }
     });
 
+// Create the analyze-dir command
+$analyzeDirCommand = $application->register('analyze-dir')
+    ->setDescription('Analyze PHP file dependencies in directories')
+    ->addArgument('directories', InputArgument::IS_ARRAY | InputArgument::REQUIRED, 'Paths to directories to analyze (multiple directories can be specified)')
+    ->addOption('pattern', 'p', InputOption::VALUE_REQUIRED, 'File pattern to match (default: *.php)', '*.php')
+    ->addOption('recursive', 'r', InputOption::VALUE_NONE, 'Analyze dependencies recursively (default: true)')
+    ->addOption('format', 'f', InputOption::VALUE_REQUIRED, 'Output format (text, json, markdown)', 'markdown')
+    ->addOption('composer', 'c', InputOption::VALUE_REQUIRED, 'Path to composer.json file')
+    ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output file path (for markdown format)')
+    ->addOption('include-autoload', 'a', InputOption::VALUE_NONE, 'Include autoload.php in the analysis (default: false)')
+    ->addOption('text-item-prefix', null, InputOption::VALUE_REQUIRED, 'Prefix for each dependency line in text output format (default: "  - ")', '  - ')
+    ->addOption('dep-tree', 'd', InputOption::VALUE_NONE, 'Display dependencies in a tree structure')
+    ->addOption('source-dir', 's', InputOption::VALUE_IS_ARRAY | InputOption::VALUE_REQUIRED, 'Source directory for FQCN conversion (can be specified multiple times)')
+    ->setCode(function (InputInterface $input, OutputInterface $output) {
+        $directories = $input->getArgument('directories');
+        $pattern = $input->getOption('pattern');
+        $recursive = true; // Always recursive by default
+        $format = $input->getOption('format');
+        $composerJsonPath = $input->getOption('composer');
+        $outputFilePath = $input->getOption('output');
+        $includeAutoload = $input->getOption('include-autoload');
+        $textItemPrefix = $input->getOption('text-item-prefix');
+        
+        try {
+            // Create a parser
+            $parser = new PhpFileParser();
+            
+            // Create a resolver
+            $resolver = new ComposerResolver($composerJsonPath);
+            
+            // Determine if we need to load file contents
+            $loadContents = $format === 'markdown';
+            
+            // Create an analyzer with the custom resolver
+            $analyzer = new DependencyAnalyzer($parser, $resolver, $loadContents, $includeAutoload);
+            
+            // Use Symfony Finder to find PHP files in the specified directories
+            $finder = new \Symfony\Component\Finder\Finder();
+            $finder->files()->name($pattern);
+            
+            foreach ($directories as $directory) {
+                if (!is_dir($directory)) {
+                    throw new \InvalidArgumentException("Directory not found: {$directory}");
+                }
+                $finder->in($directory);
+            }
+            
+            // Check if any files were found
+            if ($finder->count() === 0) {
+                $output->writeln("<error>No files matching pattern '{$pattern}' found in the specified directories.</error>");
+                return Command::FAILURE;
+            }
+            
+            $output->writeln("<info>Found " . $finder->count() . " files matching pattern '{$pattern}'.</info>");
+            
+            // Create a root node for aggregating all dependencies
+            $rootNode = new DependencyNode('root');
+            
+            // Analyze each file and aggregate dependencies
+            foreach ($finder as $file) {
+                $filePath = $file->getRealPath();
+                $output->writeln("<info>Analyzing file: {$filePath}</info>");
+                
+                // Reset the analyzer state for each file
+                $analyzer->reset();
+                
+                // Analyze the file
+                $node = $analyzer->analyze($filePath, $recursive);
+                
+                // Add the file as a dependency of the root node
+                $rootNode->addDependency($node);
+            }
+            
+            // Display the results
+            if ($input->getOption('dep-tree')) {
+                $output->writeln("<info>Dependency tree for files in specified directories:</info>");
+                
+                // Get source directories from command line option
+                $sourceDirs = $input->getOption('source-dir');
+                
+                // If source directories are specified, show them
+                if (!empty($sourceDirs)) {
+                    $output->writeln("<info>Using source directories: " . implode(', ', $sourceDirs) . "</info>");
+                }
+                
+                $treeOutput = $rootNode->toTree(false, $sourceDirs);
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $treeOutput);
+                    $output->writeln("<info>Tree output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($treeOutput);
+                }
+                
+                // Return early to avoid falling through to the default format
+                return 0;
+            } elseif ($format === 'json') {
+                $dependencies = [];
+                
+                foreach ($rootNode->getDependencies() as $node) {
+                    $fileDependencies = $node->getAllDependencyPaths();
+                    $dependencies[$node->getFilePath()] = $fileDependencies;
+                }
+                
+                $jsonOutput = json_encode([
+                    'directories' => $directories,
+                    'pattern' => $pattern,
+                    'files' => array_keys($dependencies),
+                    'dependencies' => $dependencies,
+                ], JSON_PRETTY_PRINT);
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $jsonOutput);
+                    $output->writeln("<info>JSON output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($jsonOutput);
+                }
+            } elseif ($format === 'markdown') {
+                $markdown = "# Directory Analysis\n\n";
+                $markdown .= "Directories: " . implode(', ', $directories) . "\n\n";
+                $markdown .= "Pattern: {$pattern}\n\n";
+                
+                foreach ($rootNode->getDependencies() as $node) {
+                    $markdown .= "## File: " . $node->getFilePath() . "\n\n";
+                    
+                    if ($node->hasFileContent()) {
+                        $markdown .= "```php\n" . $node->getFileContent() . "\n```\n\n";
+                    }
+                    
+                    $fileDependencies = $node->getAllDependencyPaths();
+                    
+                    if (empty($fileDependencies)) {
+                        $markdown .= "No dependencies found.\n\n";
+                    } else {
+                        $markdown .= "### Dependencies\n\n";
+                        
+                        foreach ($fileDependencies as $dependency) {
+                            $markdown .= "- {$dependency}\n";
+                        }
+                        
+                        $markdown .= "\nTotal dependencies: " . count($fileDependencies) . "\n\n";
+                    }
+                }
+                
+                if ($outputFilePath) {
+                    file_put_contents($outputFilePath, $markdown);
+                    $output->writeln("<info>Markdown output written to {$outputFilePath}</info>");
+                } else {
+                    $output->writeln($markdown);
+                }
+            } else {
+                $output->writeln("<info>Dependencies for files in specified directories:</info>");
+                
+                foreach ($rootNode->getDependencies() as $node) {
+                    $filePath = $node->getFilePath();
+                    $dependencies = $node->getAllDependencyPaths();
+                    
+                    $output->writeln("\n<info>File: {$filePath}</info>");
+                    
+                    if (empty($dependencies)) {
+                        $output->writeln('  <comment>No dependencies found.</comment>');
+                    } else {
+                        foreach ($dependencies as $dependency) {
+                            $output->writeln("{$textItemPrefix}{$dependency}");
+                        }
+                        
+                        $output->writeln("<info>Total dependencies: " . count($dependencies) . "</info>");
+                    }
+                }
+            }
+            
+            return Command::SUCCESS;
+        } catch (\Exception $e) {
+            $output->writeln("<error>Error: {$e->getMessage()}</error>");
+            return Command::FAILURE;
+        }
+    });
+
 // Set the default command to 'analyze'
-$application->setDefaultCommand('analyze', true);
+$application->setDefaultCommand('analyze', false);
 
 $application->run();

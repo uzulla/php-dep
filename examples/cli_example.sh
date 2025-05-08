@@ -67,3 +67,25 @@ $PHP_DEP src/RealWorldExample.php --format=text
 echo
 
 echo "=== Example completed ==="
+
+echo
+echo "=== Directory Analysis Examples ==="
+echo
+
+echo "11. Basic directory analysis (analyze all PHP files in a directory):"
+$PHP_DEP analyze-dir src --format=text
+echo
+
+echo "12. Multiple directory analysis:"
+$PHP_DEP analyze-dir src src/Controllers --format=text
+echo
+
+echo "13. Custom file pattern:"
+$PHP_DEP analyze-dir src --pattern="*Controller.php" --format=text
+echo
+
+echo "14. Dependency tree output for directory analysis:"
+$PHP_DEP analyze-dir src --dep-tree
+echo
+
+echo "=== All Examples Completed ==="
