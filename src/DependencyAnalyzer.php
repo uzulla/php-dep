@@ -349,6 +349,12 @@ class DependencyAnalyzer
                         $usedClasses[$useStatement] = true;
                     }
                 }
+                
+                foreach ($parseResult['classDefinitions'] as $className) {
+                    if (preg_match('/\bfunction\s+[a-zA-Z0-9_]+\s*\(/', $fileContent)) {
+                        $usedClasses[$className] = true;
+                    }
+                }
             } catch (\Exception $e) {
                 continue;
             }
