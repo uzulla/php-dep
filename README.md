@@ -94,6 +94,8 @@ ln -s $(pwd)/bin/php-dep /usr/local/bin/php-dep
 
 ### CLI Usage
 
+#### Analyze a Single File
+
 ```bash
 # Basic usage (defaults to recursive analysis with markdown output)
 php-dep path/to/your/file.php
@@ -116,8 +118,6 @@ php-dep path/to/your/file.php --format=json
 # Display dependencies in a tree structure
 php-dep path/to/your/file.php --dep-tree
 
-
-
 # Output in Markdown format to a file
 php-dep path/to/your/file.php --output=dependencies.md
 
@@ -126,6 +126,25 @@ php-dep path/to/your/file.php --format=text --text-item-prefix="@"
 
 # Output in text format without prefix
 php-dep path/to/your/file.php --format=text --text-item-prefix=""
+```
+
+#### Analyze Directories
+
+```bash
+# Analyze all PHP files in a directory
+php-dep analyze-dir path/to/directory
+
+# Analyze multiple directories
+php-dep analyze-dir path/to/directory1 path/to/directory2
+
+# Use a custom file pattern
+php-dep analyze-dir path/to/directory --pattern="*Controller.php"
+
+# Output in text format
+php-dep analyze-dir path/to/directory --format=text
+
+# Display dependencies in a tree structure
+php-dep analyze-dir path/to/directory --dep-tree
 ```
 
 ### Library Usage
