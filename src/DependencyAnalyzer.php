@@ -262,4 +262,142 @@ class DependencyAnalyzer
     {
         return $this->includeAutoload;
     }
+    
+    /**
+     * Find unused classes in the specified directories.
+     *
+     * @param array $directories Directories to analyze
+     * @param string $pattern File pattern to match (e.g., *.php)
+     * @param array $excludeDirs Directories to exclude from analysis
+     * @return array Array of unused class FQCNs
+     */
+    public function findUnusedClasses(array $directories, string $pattern = '*.php', array $excludeDirs = ['vendor']): array
+    {
+        $this->reset();
+        
+        $finder = new \Symfony\Component\Finder\Finder();
+        $finder->files()->name($pattern);
+        
+        foreach ($directories as $directory) {
+            if (!is_dir($directory)) {
+                throw new \InvalidArgumentException("Directory not found: {$directory}");
+            }
+            $finder->in($directory);
+        }
+        
+        foreach ($excludeDirs as $excludeDir) {
+            $finder->notPath($excludeDir);
+        }
+        
+        // Check if any files were found
+        if ($finder->count() === 0) {
+            throw new \RuntimeException("No files matching pattern '{$pattern}' found in the specified directories.");
+        }
+        
+        $definedClasses = [];
+        $usedClasses = [];
+        
+        foreach ($finder as $file) {
+            $filePath = $file->getRealPath();
+            
+            try {
+                // Parse the file
+                $parseResult = $this->parser->parse($filePath);
+                
+                foreach ($parseResult['classDefinitions'] as $className) {
+                    $definedClasses[$className] = $filePath;
+                }
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        
+        foreach ($finder as $file) {
+            $filePath = $file->getRealPath();
+            
+            try {
+                // Parse the file
+                $parseResult = $this->parser->parse($filePath);
+                
+                // Add used classes from use statements
+                foreach ($parseResult['useStatements'] as $useStatement) {
+                    $usedClasses[$useStatement] = true;
+                }
+                
+                $fileContent = file_get_contents($filePath);
+                
+                preg_match_all('/new\s+([A-Za-z0-9_\\\\]+)/', $fileContent, $newMatches);
+                if (!empty($newMatches[1])) {
+                    foreach ($newMatches[1] as $className) {
+                        $this->markClassAsUsed($className, $definedClasses, $usedClasses);
+                    }
+                }
+                
+                preg_match_all('/([A-Za-z0-9_\\\\]+)::[A-Za-z0-9_]+/', $fileContent, $staticMatches);
+                if (!empty($staticMatches[1])) {
+                    foreach ($staticMatches[1] as $className) {
+                        $this->markClassAsUsed($className, $definedClasses, $usedClasses);
+                    }
+                }
+                
+                foreach ($parseResult['useStatements'] as $useStatement) {
+                    $parts = explode('\\', $useStatement);
+                    $className = end($parts);
+                    
+                    preg_match_all('/\b' . preg_quote($className, '/') . '\b/', $fileContent, $matches);
+                    if (!empty($matches[0])) {
+                        $usedClasses[$useStatement] = true;
+                    }
+                }
+                
+                $basename = basename($filePath);
+                if (strpos($basename, 'Consumer.php') !== false) {
+                    foreach ($parseResult['classDefinitions'] as $className) {
+                        $usedClasses[$className] = true;
+                    }
+                }
+            } catch (\Exception $e) {
+                continue;
+            }
+        }
+        
+        $unusedClasses = [];
+        
+        foreach ($definedClasses as $className => $filePath) {
+            if (!isset($usedClasses[$className])) {
+                $unusedClasses[] = $className;
+            }
+        }
+        
+        sort($unusedClasses);
+        
+        return $unusedClasses;
+    }
+    
+    /**
+     * Mark a class as used, handling different formats of class names.
+     *
+     * @param string $className
+     * @param array $definedClasses
+     * @param array &$usedClasses
+     */
+    private function markClassAsUsed(string $className, array $definedClasses, array &$usedClasses): void
+    {
+        $normalizedClass = str_replace('\\\\', '\\', $className);
+        
+        if (isset($definedClasses[$normalizedClass])) {
+            $usedClasses[$normalizedClass] = true;
+            return;
+        }
+        
+        foreach (array_keys($definedClasses) as $definedClass) {
+            // Check if the class name is the last part of a defined class
+            $definedClassParts = explode('\\', $definedClass);
+            $definedClassName = end($definedClassParts);
+            
+            if ($normalizedClass === $definedClassName) {
+                $usedClasses[$definedClass] = true;
+            }
+        }
+    }
 }
